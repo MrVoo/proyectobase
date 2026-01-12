@@ -74,6 +74,41 @@ for file in "${FILES_TO_RENAME[@]}"; do
 done
 
 echo ""
+echo "=== Renombrando directorio ==="
+echo ""
+
+# Preguntar si desea renombrar el directorio PRIMERO
+read -p "¿Deseas renombrar el directorio de '$OLD_NAME' a '$NEW_NAME'? (s/n): " rename_dir
+if [ "$rename_dir" == "s" ]; then
+    CURRENT_DIR=$(basename "$PROJECT_DIR")
+    PARENT_DIR=$(dirname "$PROJECT_DIR")
+    NEW_DIR="$PARENT_DIR/$NEW_NAME"
+
+    # Verificar que el directorio destino no existe
+    if [ -d "$NEW_DIR" ]; then
+        echo "Error: El directorio '$NEW_DIR' ya existe"
+        echo "Por favor, elige otro nombre o elimina el directorio existente"
+        exit 1
+    else
+        echo "Renombrando directorio..."
+        mv "$PROJECT_DIR" "$NEW_DIR"
+
+        if [ $? -eq 0 ]; then
+            echo "✓ Directorio renombrado exitosamente"
+            echo "  Antigua ubicación: $PROJECT_DIR"
+            echo "  Nueva ubicación: $NEW_DIR"
+            PROJECT_DIR="$NEW_DIR"
+            cd "$PROJECT_DIR"
+        else
+            echo "Error al renombrar el directorio"
+            exit 1
+        fi
+    fi
+else
+    echo "Renombrado de directorio omitido."
+fi
+
+echo ""
 echo "=== Configurando repositorio Git ==="
 echo ""
 
@@ -140,50 +175,21 @@ echo "  - Referencias en docker-compose.yml actualizadas"
 echo "  - Referencias en docker-compose.dev.yml actualizadas"
 echo "  - Referencias en backend/.env.example actualizadas"
 echo "  - Referencias en README.md actualizadas"
+if [ "$rename_dir" == "s" ]; then
+    echo "  - Directorio renombrado a: $NEW_DIR"
+fi
 if [ "$create_repo" == "s" ]; then
     echo "  - Nuevo repositorio Git creado y vinculado a GitHub"
 fi
 
-# Preguntar si desea renombrar el directorio
-echo ""
-read -p "¿Deseas renombrar el directorio de '$OLD_NAME' a '$NEW_NAME'? (s/n): " rename_dir
-if [ "$rename_dir" == "s" ]; then
-    CURRENT_DIR=$(basename "$PROJECT_DIR")
-    PARENT_DIR=$(dirname "$PROJECT_DIR")
-    NEW_DIR="$PARENT_DIR/$NEW_NAME"
-
-    # Verificar que el directorio destino no existe
-    if [ -d "$NEW_DIR" ]; then
-        echo "Error: El directorio '$NEW_DIR' ya existe"
-        echo "Por favor, elige otro nombre o elimina el directorio existente"
-    else
-        echo "Renombrando directorio..."
-        mv "$PROJECT_DIR" "$NEW_DIR"
-
-        if [ $? -eq 0 ]; then
-            echo "✓ Directorio renombrado exitosamente"
-            echo "  Nueva ubicación: $NEW_DIR"
-            PROJECT_DIR="$NEW_DIR"
-            echo ""
-            echo "IMPORTANTE: Cambia al nuevo directorio con:"
-            echo "  cd $NEW_DIR"
-        else
-            echo "Error al renombrar el directorio"
-        fi
-    fi
-fi
-
 echo ""
 echo "Próximos pasos:"
-if [ "$rename_dir" == "s" ] && [ -d "$NEW_DIR" ]; then
-    echo "  1. Cambia al nuevo directorio: cd $NEW_DIR"
-    echo "  2. Copia backend/.env.example a backend/.env y configúralo"
-    echo "  3. Copia frontend/.env.example a frontend/.env si es necesario"
-    echo "  4. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
-else
-    echo "  1. Revisa los archivos modificados"
-    echo "  2. Copia backend/.env.example a backend/.env y configúralo"
-    echo "  3. Copia frontend/.env.example a frontend/.env si es necesario"
-    echo "  4. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
+if [ "$rename_dir" == "s" ]; then
+    echo "  IMPORTANTE: Cambia al nuevo directorio con:"
+    echo "  cd $NEW_DIR"
+    echo ""
 fi
+echo "  1. Copia backend/.env.example a backend/.env y configúralo"
+echo "  2. Copia frontend/.env.example a frontend/.env si es necesario"
+echo "  3. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
 echo ""
