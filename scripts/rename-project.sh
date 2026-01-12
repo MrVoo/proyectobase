@@ -74,6 +74,65 @@ for file in "${FILES_TO_RENAME[@]}"; do
 done
 
 echo ""
+echo "=== Configurando repositorio Git ==="
+echo ""
+
+# Preguntar si desea crear nuevo repositorio
+read -p "¿Deseas crear un nuevo repositorio Git con el nombre '$NEW_NAME'? (s/n): " create_repo
+if [ "$create_repo" == "s" ]; then
+    # Verificar si gh CLI está instalado
+    if ! command -v gh &> /dev/null; then
+        echo "Error: GitHub CLI (gh) no está instalado."
+        echo "Instálalo con: sudo apt install gh (Ubuntu/Debian) o brew install gh (macOS)"
+        exit 1
+    fi
+
+    # Verificar autenticación de GitHub
+    if ! gh auth status &> /dev/null; then
+        echo "No estás autenticado en GitHub CLI."
+        read -p "¿Deseas autenticarte ahora? (s/n): " auth_now
+        if [ "$auth_now" == "s" ]; then
+            gh auth login
+        else
+            echo "Operación cancelada. Autentica con: gh auth login"
+            exit 1
+        fi
+    fi
+
+    echo ""
+    echo "Eliminando repositorio Git anterior..."
+    rm -rf .git
+
+    echo "Inicializando nuevo repositorio Git..."
+    git init
+    git add .
+    git commit -m "Initial commit: $NEW_NAME"
+
+    echo ""
+    read -p "¿El repositorio debe ser público o privado? (publico/privado): " visibility
+
+    # Crear repositorio en GitHub
+    echo "Creando repositorio '$NEW_NAME' en GitHub..."
+    if [ "$visibility" == "publico" ]; then
+        gh repo create "$NEW_NAME" --public --source=. --remote=origin --push
+    else
+        gh repo create "$NEW_NAME" --private --source=. --remote=origin --push
+    fi
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✓ Repositorio creado exitosamente en GitHub"
+        echo "  URL: https://github.com/$(gh api user --jq .login)/$NEW_NAME"
+    else
+        echo ""
+        echo "Error al crear el repositorio en GitHub"
+        exit 1
+    fi
+else
+    echo "Configuración de repositorio omitida."
+fi
+
+echo ""
 echo "=== Renombrado completado ==="
 echo ""
 echo "Cambios realizados:"
@@ -81,10 +140,50 @@ echo "  - Referencias en docker-compose.yml actualizadas"
 echo "  - Referencias en docker-compose.dev.yml actualizadas"
 echo "  - Referencias en backend/.env.example actualizadas"
 echo "  - Referencias en README.md actualizadas"
+if [ "$create_repo" == "s" ]; then
+    echo "  - Nuevo repositorio Git creado y vinculado a GitHub"
+fi
+
+# Preguntar si desea renombrar el directorio
+echo ""
+read -p "¿Deseas renombrar el directorio de '$OLD_NAME' a '$NEW_NAME'? (s/n): " rename_dir
+if [ "$rename_dir" == "s" ]; then
+    CURRENT_DIR=$(basename "$PROJECT_DIR")
+    PARENT_DIR=$(dirname "$PROJECT_DIR")
+    NEW_DIR="$PARENT_DIR/$NEW_NAME"
+
+    # Verificar que el directorio destino no existe
+    if [ -d "$NEW_DIR" ]; then
+        echo "Error: El directorio '$NEW_DIR' ya existe"
+        echo "Por favor, elige otro nombre o elimina el directorio existente"
+    else
+        echo "Renombrando directorio..."
+        mv "$PROJECT_DIR" "$NEW_DIR"
+
+        if [ $? -eq 0 ]; then
+            echo "✓ Directorio renombrado exitosamente"
+            echo "  Nueva ubicación: $NEW_DIR"
+            PROJECT_DIR="$NEW_DIR"
+            echo ""
+            echo "IMPORTANTE: Cambia al nuevo directorio con:"
+            echo "  cd $NEW_DIR"
+        else
+            echo "Error al renombrar el directorio"
+        fi
+    fi
+fi
+
 echo ""
 echo "Próximos pasos:"
-echo "  1. Revisa los archivos modificados"
-echo "  2. Copia backend/.env.example a backend/.env y configúralo"
-echo "  3. Copia frontend/.env.example a frontend/.env si es necesario"
-echo "  4. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
+if [ "$rename_dir" == "s" ] && [ -d "$NEW_DIR" ]; then
+    echo "  1. Cambia al nuevo directorio: cd $NEW_DIR"
+    echo "  2. Copia backend/.env.example a backend/.env y configúralo"
+    echo "  3. Copia frontend/.env.example a frontend/.env si es necesario"
+    echo "  4. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
+else
+    echo "  1. Revisa los archivos modificados"
+    echo "  2. Copia backend/.env.example a backend/.env y configúralo"
+    echo "  3. Copia frontend/.env.example a frontend/.env si es necesario"
+    echo "  4. Ejecuta el script de despliegue: ./scripts/deploy-local.sh"
+fi
 echo ""
